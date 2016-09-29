@@ -64,25 +64,29 @@ class GerritClient(object):
 
         The query parameters can be specified as keyword arguments.
         """
-        cursor = None
+        q_str = ' '.join(':'.join(param) for param in query.iteritems())
 
         with self as ssh_client:
+            count = 0
             while True:
-                if cursor is not None:
-                    query['resume_sortkey'] = cursor
-
-                q_str = ' '.join(':'.join(param) for param in query.iteritems())
-                query_cmd = 'gerrit query "%s" --comments --format JSON' % q_str
+                query_cmd = ' '.join(['gerrit query',
+                                      '"%s"' % q_str,
+                                      '--comments',
+                                      '--format=JSON',
+                                      '--start=%d' % count])
 
                 stdin, stdout, stderr = ssh_client.exec_command(query_cmd)
 
+                prior_count = count
                 for record in itertools.imap(load_patchset, stdout):
                     if 'type' in record and record['type'] == 'stats':
-                        if not record['rowCount']:
+                        if not record.get('moreChanges', False):
                             return
+                        count += record['rowCount']
                     else:
-                        cursor = record['sortKey']
                         yield record
+                if count == prior_count:
+                    break
 
     def __enter__(self):
         """
