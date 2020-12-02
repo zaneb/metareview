@@ -200,7 +200,7 @@ def main():
                               'Defaults to "%default".')
     optparser.add_option('-u', '--ssh-user', default=None,
                          help='The Gerrit username to connect with.')
-    optparser.add_option('-s', '--ssh-server', default='review.openstack.org',
+    optparser.add_option('-s', '--ssh-server', default='review.opendev.org',
                          help='The Gerrit server to connect to. '
                               'Defaults to "%default".')
 
