@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #    Copyright 2014 Zane Bitter <zbitter@redhat.com>
 #
@@ -23,7 +23,6 @@ By Zane Bitter <zbitter@redhat.com>
 """
 
 import datetime
-import itertools
 import json
 import sys
 
@@ -65,7 +64,7 @@ class GerritClient(object):
 
         The query parameters can be specified as keyword arguments.
         """
-        q_str = ' '.join(':'.join(param) for param in query.iteritems())
+        q_str = ' '.join(':'.join(param) for param in query.items())
 
         with self as ssh_client:
             count = 0
@@ -79,7 +78,7 @@ class GerritClient(object):
                 stdin, stdout, stderr = ssh_client.exec_command(query_cmd)
 
                 prior_count = count
-                for record in itertools.imap(load_patchset, stdout):
+                for record in map(load_patchset, stdout):
                     if 'type' in record and record['type'] == 'stats':
                         if not record.get('moreChanges', False):
                             return
@@ -219,7 +218,7 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as exc:
-        sys.stderr.write(unicode(exc) + '\n')
+        sys.stderr.write(str(exc) + '\n')
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(0)
