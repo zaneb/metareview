@@ -22,6 +22,7 @@ Prints all of the comments left by a given Gerrit reviewer.
 By Zane Bitter <zbitter@redhat.com>
 """
 
+import datetime
 import itertools
 import json
 import sys
@@ -160,7 +161,9 @@ def extract_comments(patchset, author=None):
 def format_comment(patchset, comment):
     """Format a comment on a given patchset for output."""
 
-    return '%s\n%s\n\n' % (patchset['url'], comment['message'])
+    return '%s %s\n%s\n\n' % (patchset['url'],
+                              datetime.datetime.fromtimestamp(comment['timestamp']),
+                              comment['message'])
 
 
 def write_all_comments(stream, patchset_source, username=None):
