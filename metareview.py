@@ -157,30 +157,34 @@ def extract_comments(patchset, author=None):
             yield comment
 
 
-def format_comment(patchset, comment):
+def format_comment(patchset, comment, color=False):
     """Format a comment on a given patchset for output."""
+    header = '%s %s' % (patchset['url'],
+                        datetime.datetime.fromtimestamp(comment['timestamp']))
+    if color:
+        header = f'\033[96m{header}\033[39m'
 
-    return '%s %s\n%s\n\n' % (patchset['url'],
-                              datetime.datetime.fromtimestamp(comment['timestamp']),
-                              comment['message'])
+    return '%s\n%s\n\n' % (header, comment['message'])
 
 
-def write_all_comments(stream, patchset_source, username=None):
+def write_all_comments(stream, patchset_source,
+                       username=None, color=False):
     """
     Write all of the comments from the patchset source to a stream.
     """
     for patchset in patchset_source:
         for comment in extract_comments(patchset, username):
-            stream.write(format_comment(patchset, comment))
+            stream.write(format_comment(patchset, comment, color))
 
 
-def metareview(options, username, stream):
+def metareview(options, username, stream, color=False):
     """Run a metareview with the given options and output stream."""
     gerrit_client = GerritClient(options.ssh_server, options.ssh_user)
     write_all_comments(stream,
                        gerrit_client.comments_query(reviewer=username,
                                                     project=options.project),
-                       username)
+                       username,
+                       color)
 
 
 def main():
