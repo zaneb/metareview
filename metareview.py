@@ -105,6 +105,82 @@ class GerritClient(object):
         self.client.close()
 
 
+class GerritAsyncClient(object):
+    """
+    An ssh client for interacting with Gerrit.
+
+    GerritClient objects can be used as a context manager that returns a
+    connected asyncssh SSHClientConnection. e.g.
+
+    >>> import sys
+    >>> async with GerritAsyncClient('gerrit.example.com') as client:
+    ...     output = await client.run('gerrit --help')
+    ...     sys.stdout.write(output.stderr.read())
+    """
+
+    def __init__(self, ssh_server, ssh_user=None, ssh_port=29418):
+        """
+        Initialise with a Gerrit server to connect to.
+
+        The username used to connect can also be overridden (otherwise the
+        default ssh settings are used), as can the port to connect to. The
+        default port for Gerrit is 29418.
+        """
+        self.ssh_server = ssh_server
+        self.ssh_user = ssh_user
+        self.ssh_port = ssh_port
+
+    async def _run_query(self, ssh_client, query_cmd):
+        stdin, stdout, stderr = await ssh_client.run(query_cmd)
+
+    async def comments_query(self, **query):
+        """
+        Return an iterator over patchset data for a Gerrit comments query.
+
+        The query parameters can be specified as keyword arguments.
+        """
+        q_str = ' '.join(':'.join(param) for param in query.items())
+
+        async with self as ssh_client:
+            count = 0
+            while True:
+                query_cmd = ' '.join(['gerrit query',
+                                      '"%s"' % q_str,
+                                      '--comments',
+                                      '--format=JSON',
+                                      '--start=%d' % count])
+
+                output = await ssh_client.run(query_cmd)
+
+                prior_count = count
+                for record in map(load_patchset, output.stdout.splitlines()):
+                    if 'type' in record and record['type'] == 'stats':
+                        if not record.get('moreChanges', False):
+                            return
+                        count += record['rowCount']
+                    else:
+                        yield record
+                if count == prior_count:
+                    break
+
+    async def __aenter__(self):
+        """
+        Open an ssh connection on entering the context manager.
+
+        Returns an asyncssh connection object to interact with the server.
+        """
+        import asyncssh
+
+        self.client = await asyncssh.connect(self.ssh_server,
+                                             port=self.ssh_port,
+                                             username=self.ssh_user)
+        return self.client
+
+    async def __aexit__(self, *exc_info):
+        self.client.close()
+        await self.client.wait_closed()
+
+
 def load_patchset(patchset_json):
     """Load a patchset from a JSON record returned from Gerrit."""
     return json.loads(patchset_json)
@@ -167,30 +243,31 @@ def format_comment(patchset, comment, color=False):
     return '%s\n%s\n\n' % (header, comment['message'])
 
 
-def write_all_comments(stream, patchset_source,
-                       username=None, color=False):
+async def write_all_comments(stream, patchset_source,
+                             username=None, color=False):
     """
     Write all of the comments from the patchset source to a stream.
     """
-    for patchset in patchset_source:
+    async for patchset in patchset_source:
         for comment in extract_comments(patchset, username):
             stream.write(format_comment(patchset, comment, color))
 
 
-def metareview(options, username, stream, color=False):
+async def metareview(options, username, stream, color=False):
     """Run a metareview with the given options and output stream."""
-    gerrit_client = GerritClient(options.ssh_server, options.ssh_user)
-    write_all_comments(stream,
-                       gerrit_client.comments_query(reviewer=username,
-                                                    project=options.project),
-                       username,
-                       color)
+    gerrit_client = GerritAsyncClient(options.ssh_server, options.ssh_user)
+    await write_all_comments(stream,
+                             gerrit_client.comments_query(reviewer=username,
+                                                          project=options.project),
+                             username,
+                             color)
 
 
 def main():
     """Run the metareview command-line interface."""
 
     import autopage
+    import asyncio
     import argparse
     import pydoc
 
@@ -213,7 +290,10 @@ def main():
     pager = autopage.AutoPager(line_buffering=False, reset_on_exit=True)
     try:
         with pager as out_stream:
-            metareview(options, options.reviewer[0], out_stream)
+            asyncio.run(metareview(options,
+                                   options.reviewer[0],
+                                   out_stream,
+                                   pager.to_terminal()))
     except KeyboardInterrupt:
         pass
     except Exception as exc:
