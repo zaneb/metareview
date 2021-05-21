@@ -186,6 +186,7 @@ def metareview(options, username, stream):
 def main():
     """Run the metareview command-line interface."""
 
+    import autopage
     import argparse
     import pydoc
 
@@ -205,14 +206,16 @@ def main():
 
     options = parser.parse_args()
 
-    return metareview(options, options.reviewer[0], sys.stdout)
+    pager = autopage.AutoPager(line_buffering=False, reset_on_exit=True)
+    try:
+        with pager as out_stream:
+            metareview(options, options.reviewer[0], out_stream)
+    except KeyboardInterrupt:
+        pass
+    except Exception as exc:
+        sys.stderr.write(str(exc) + '\n')
+    return pager.exit_code()
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as exc:
-        sys.stderr.write(str(exc) + '\n')
-        sys.exit(1)
-    except KeyboardInterrupt:
-        sys.exit(0)
+    sys.exit(main())
