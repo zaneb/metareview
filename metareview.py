@@ -150,18 +150,18 @@ class GerritAsyncClient(object):
                                       '--format=JSON',
                                       '--start=%d' % count])
 
-                output = await ssh_client.run(query_cmd)
-
-                prior_count = count
-                for record in map(load_patchset, output.stdout.splitlines()):
-                    if 'type' in record and record['type'] == 'stats':
-                        if not record.get('moreChanges', False):
-                            return
-                        count += record['rowCount']
-                    else:
-                        yield record
-                if count == prior_count:
-                    break
+                async with ssh_client.create_process(query_cmd) as output:
+                    prior_count = count
+                    async for line in output.stdout:
+                        record = load_patchset(line)
+                        if 'type' in record and record['type'] == 'stats':
+                            if not record.get('moreChanges', False):
+                                return
+                            count += record['rowCount']
+                        else:
+                            yield record
+                    if count == prior_count:
+                        break
 
     async def __aenter__(self):
         """
