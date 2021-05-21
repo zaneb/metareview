@@ -186,32 +186,26 @@ def metareview(options, username, stream):
 def main():
     """Run the metareview command-line interface."""
 
-    import optparse
+    import argparse
     import pydoc
 
     docstring = pydoc.getdoc(sys.modules[__name__])
 
-    optparser = optparse.OptionParser(usage="%prog [-p PROJECT] [-u SSH_USER] "
-                                            "[-s SSH_SERVER] REVIEWER",
-                                      description=docstring)
-    optparser.add_option('-p', '--project', default='openstack/heat',
-                         help='The project to look in. '
-                              'Defaults to "%default".')
-    optparser.add_option('-u', '--ssh-user', default=None,
-                         help='The Gerrit username to connect with.')
-    optparser.add_option('-s', '--ssh-server', default='review.opendev.org',
-                         help='The Gerrit server to connect to. '
-                              'Defaults to "%default".')
+    parser = argparse.ArgumentParser(description=docstring)
+    parser.add_argument('-p', '--project', default='openstack/heat',
+                        help='The project to look in. '
+                             'Defaults to "%(default)s".')
+    parser.add_argument('-u', '--ssh-user', default=None,
+                        help='The Gerrit username to connect with.')
+    parser.add_argument('-s', '--ssh-server', default='review.opendev.org',
+                        help='The Gerrit server to connect to. '
+                             'Defaults to "%(default)s".')
+    parser.add_argument('reviewer', metavar='REVIEWER', nargs=1,
+                        help="Reviewer whose comments to fetch.")
 
-    options, args = optparser.parse_args()
+    options = parser.parse_args()
 
-    if len(args) < 1:
-        raise Exception('No reviewer specified.')
-
-    if len(args) > 1:
-        raise Exception('Multiple reviewers specified.')
-
-    return metareview(options, args[0], sys.stdout)
+    return metareview(options, options.reviewer[0], sys.stdout)
 
 
 if __name__ == '__main__':
