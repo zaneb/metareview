@@ -253,20 +253,27 @@ async def write_all_comments(stream, patchset_source,
             stream.write(format_comment(patchset, comment, color))
 
 
-async def metareview(options, username, stream, color=False):
-    """Run a metareview with the given options and output stream."""
+async def async_metareview(options):
+    username = options.reviewer[0]
+
     gerrit_client = GerritAsyncClient(options.ssh_server, options.ssh_user)
-    await write_all_comments(stream,
-                             gerrit_client.comments_query(reviewer=username,
-                                                          project=options.project),
-                             username,
-                             color)
+    comments = gerrit_client.comments_query(reviewer=username,
+                                            project=options.project)
+
+    import autopage
+    pager = autopage.AutoPager(line_buffering=False, reset_on_exit=True)
+    try:
+        async with pager as out_stream:
+            await write_all_comments(out_stream, comments, username,
+                                     pager.to_terminal())
+    except Exception as exc:
+        sys.stderr.write(str(exc) + '\n')
+    return pager.exit_code()
 
 
 def main():
     """Run the metareview command-line interface."""
 
-    import autopage
     import asyncio
     import argparse
     import pydoc
@@ -287,18 +294,7 @@ def main():
 
     options = parser.parse_args()
 
-    pager = autopage.AutoPager(line_buffering=False, reset_on_exit=True)
-    try:
-        with pager as out_stream:
-            asyncio.run(metareview(options,
-                                   options.reviewer[0],
-                                   out_stream,
-                                   pager.to_terminal()))
-    except KeyboardInterrupt:
-        pass
-    except Exception as exc:
-        sys.stderr.write(str(exc) + '\n')
-    return pager.exit_code()
+    return asyncio.run(async_metareview(options))
 
 
 if __name__ == '__main__':

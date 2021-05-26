@@ -1,2 +1,2 @@
 asyncssh
-autopage>=0.2.0
+git+http://github.com/zaneb/autopage.git@async
