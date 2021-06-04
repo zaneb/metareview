@@ -1,1 +1,2 @@
+paramiko
 autopage>=0.2.0
