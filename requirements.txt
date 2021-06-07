@@ -1,2 +1,2 @@
 paramiko
-autopage>=0.2.0
+autopage>=0.3.0

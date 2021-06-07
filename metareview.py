@@ -187,7 +187,7 @@ def main():
     """Run the metareview command-line interface."""
 
     import autopage
-    import argparse
+    from autopage import argparse
     import pydoc
 
     docstring = pydoc.getdoc(sys.modules[__name__])
